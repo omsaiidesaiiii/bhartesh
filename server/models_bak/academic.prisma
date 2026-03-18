@@ -1,0 +1,81 @@
+
+// ===========================
+// ACADEMIC OPERATIONS
+// ===========================
+
+model Subject {
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  credits      Int?
+  semester     Int
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teachers     StaffSubject[]
+  timetables   TimeTable[]
+
+  @@index([departmentId])
+  @@index([semester])
+}
+
+model StaffSubject {
+  id        String   @id @default(cuid())
+  staffId   String
+  subjectId String
+
+  staff     User    @relation(fields: [staffId], references: [id])
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([staffId, subjectId])
+}
+
+model TimeTable {
+  id           String   @id @default(cuid())
+
+  staffId      String
+  subjectId    String
+  departmentId String
+
+  dayOfWeek    DayOfWeek
+  startTime    DateTime
+  endTime      DateTime
+  room         String?
+
+  staff        User       @relation(fields: [staffId], references: [id])
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([staffId])
+  @@index([departmentId])
+  @@index([dayOfWeek])
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+model DepartmentHOD {
+  id           String   @id @default(cuid())
+  departmentId String   @unique
+  staffId      String   @unique
+
+  department   Department @relation(fields: [departmentId], references: [id])
+  staff        User       @relation(fields: [staffId], references: [id])
+
+  assignedAt   DateTime @default(now())
+}

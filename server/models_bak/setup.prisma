@@ -1,0 +1,73 @@
+model Department {
+    id        String           @id @default(cuid())
+    name      String           @unique
+    createdAt DateTime         @default(now())
+    updatedAt DateTime         @updatedAt
+    status    DepartmentStatus @default(ACTIVE)
+    
+    users     User[]
+
+    courses Course[]
+    subjects Subject[]
+    timetables TimeTable[]
+    hod DepartmentHOD?
+}
+
+enum DepartmentStatus {
+    ACTIVE
+    INACTIVE
+}
+
+model Course {
+  id             String       @id @default(cuid())
+  title          String
+  code           String       @unique
+  description    String?
+  type           CourseType   @default(UNDERGRADUATE)
+  duration       String       // e.g., "4 Years", "2 Years"
+  totalSemesters Int          // Total number of semesters in the course
+  credits        Int?         // Total credit hours
+  maxEnrollment  Int?         // Maximum students allowed
+
+  status         CourseStatus @default(ACTIVE)
+
+  departmentId   String
+  department     Department   @relation(fields: [departmentId], references: [id])
+
+  enrollments    StudentCourse[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([departmentId])
+  @@index([status])
+  @@index([type])
+}
+
+enum CourseType {
+    UNDERGRADUATE
+    POSTGRADUATE
+    DIPLOMA
+    PUC
+    SCHOOL
+}
+model StudentCourse {
+  id        String   @id @default(cuid())
+  studentId String
+  courseId  String
+
+  student   User     @relation(fields: [studentId], references: [id])
+  course    Course   @relation(fields: [courseId], references: [id])
+
+  createdAt DateTime @default(now())
+  
+  @@unique([studentId, courseId])
+  @@index([studentId])
+  @@index([courseId])
+}
+
+
+enum CourseStatus {
+    ACTIVE
+    INACTIVE
+}

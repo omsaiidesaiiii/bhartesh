@@ -1,0 +1,272 @@
+// ===========================
+// ENUMS
+// ===========================
+
+enum ForgotPasswordStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum CMSUserRole {
+  ADMIN
+  STUDENT
+  STAFF
+}
+
+enum DeviceType {
+  ANDROID
+  IOS
+  WEB
+  MAC
+  WINDOWS
+  LINUX
+  DESKTOP
+  OTHER
+}
+
+enum NotificationTargetType {
+  USER
+  MULTIPLE_USERS
+  ROLE
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  DELIVERED
+  READ
+}
+
+// ===========================
+// USER
+// ===========================
+
+// AUTH DESIGN:
+// - ADMIN: System credentials (password), seeded in DB
+// - STAFF: Username + Password, created by Admin
+// - STUDENT: Google Login via Firebase, self-registration with college email
+//
+// RULES:
+// - firebaseUid → ONLY for STUDENT
+// - password → ONLY for ADMIN / STAFF
+// - Both are optional but never used together
+
+model User {
+  id                        String       @id @default(cuid())
+  name                      String
+  
+  // Firebase UID - ONLY for students (Google Login)
+  firebaseUid               String?      @unique
+  
+  username                  String?      @unique
+  email                     String       @unique
+  
+  // Password - ONLY for admin & staff (hashed with bcrypt)
+  password                  String?
+  
+  // User role determines auth method
+  role                      CMSUserRole  @default(STUDENT)
+  
+  isActive                  Boolean      @default(true)
+  isVerified                Boolean      @default(false)
+
+  phone                     String?
+  profileImageUrl           String?
+
+  verifyToken               String?
+  verifyTokenExpiry         DateTime?
+  forgotPasswordToken       String?
+  forgotPasswordTokenExpiry DateTime?
+
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  createdById               String?
+  updatedById               String?
+
+  // Department relation
+  departmentId              String?
+  department                Department?  @relation(fields: [departmentId], references: [id])
+
+  // ---------------------------
+  // RELATIONS
+  // ---------------------------
+
+  roles                     UserRole[]
+  tokens                    UserTokens[]
+  notificationHistories     NotificationHistory[]
+
+  // Forgot password requests raised by user
+  forgotPasswordRequests    ForgotPasswordRequest[] @relation("UserForgotPasswordRequests")
+
+  // Forgot password requests processed by admin
+  processedPasswordRequests ForgotPasswordRequest[] @relation("ProcessedByAdmin")
+  courses                   StudentCourse[]
+  staffSubjects             StaffSubject[]
+  timetables                TimeTable[]
+  departmentHOD             DepartmentHOD?
+
+  fcmDeliveryStatuses       FcmDeliveryStatus[]
+  profile                   Profile?
+  @@index([email])
+  @@index([username])
+  @@index([role])
+  @@index([isActive])
+  @@index([isVerified])
+  @@index([departmentId])
+}
+
+model Profile{
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  bio       String?
+  location  String?
+  regno     String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  gender    Gender?
+  address   String?
+  DOB       DateTime?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+// ===========================
+// ROLE & RBAC
+// ===========================
+
+model Role {
+  id          String       @id @default(cuid())
+  name        CMSUserRole  @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  userRoles   UserRole[]
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, roleId])
+}
+
+// ===========================
+// FORGOT PASSWORD REQUEST
+// ===========================
+
+model ForgotPasswordRequest {
+  id          String               @id @default(cuid())
+  userId      String
+  email       String
+  status      ForgotPasswordStatus @default(PENDING)
+
+  requestedAt DateTime             @default(now())
+  processedAt DateTime?
+  processedBy String?
+  reason      String?
+
+  user        User                 @relation("UserForgotPasswordRequests", fields: [userId], references: [id])
+  admin       User?                @relation("ProcessedByAdmin", fields: [processedBy], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([processedBy])
+}
+
+// ===========================
+// USER DEVICE TOKENS (FCM)
+// ===========================
+
+model UserTokens {
+  id         Int         @id @default(autoincrement())
+  userId     String?
+  token      String
+  deviceType DeviceType?
+  deviceId   String?
+
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  lastUsed   DateTime    @default(now())
+
+  user       User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries FcmDeliveryStatus[]
+
+  @@unique([userId, deviceId])
+}
+
+// ===========================
+// NOTIFICATION HISTORY
+// ===========================
+
+model NotificationHistory {
+  id           Int                    @id @default(autoincrement())
+  title        String
+  body         String
+  data         Json?
+
+  targetType   NotificationTargetType
+  targetIds    Json
+
+  successCount Int                    @default(0)
+  failureCount Int                    @default(0)
+
+  status       NotificationStatus     @default(PENDING)
+  sentAt       DateTime               @default(now())
+
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  sentById     String?
+  sentBy       User?                  @relation(fields: [sentById], references: [id], onDelete: SetNull)
+
+  tokens       FcmDeliveryStatus[]
+
+  @@index([sentAt])
+  @@index([targetType])
+  @@index([sentById])
+}
+
+// ===========================
+// FCM DELIVERY STATUS
+// ===========================
+
+model FcmDeliveryStatus {
+  id             Int                @id @default(autoincrement())
+  notificationId Int
+  tokenId        Int
+  userId         String
+
+  status         NotificationStatus @default(PENDING)
+  errorMessage   String?
+  errorCode      String?
+
+  processedAt    DateTime?
+  deliveredAt    DateTime?
+  readAt         DateTime?
+
+  createdAt      DateTime           @default(now())
+
+  notification   NotificationHistory @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  token          UserTokens          @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([tokenId])
+  @@index([userId])
+  @@index([status])
+}

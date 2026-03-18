@@ -1,0 +1,35 @@
+import * as admin from 'firebase-admin';
+
+let isInitialized = false;
+
+export function getFirebaseAdmin(): typeof admin {
+  if (isInitialized) {
+    return admin;
+  }
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+  if (!projectId || !clientEmail || !privateKey) {
+    console.error('🔥 Firebase ENV missing', {
+      projectId,
+      clientEmail,
+      privateKeyExists: !!privateKey,
+    });
+    throw new Error('Firebase Admin environment variables are missing');
+  }
+
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId,
+      clientEmail,
+      privateKey: privateKey.replace(/\\n/g, '\n'),
+    }),
+  });
+
+  isInitialized = true;
+  console.log('✅ Firebase Admin initialized (singleton)');
+
+  return admin;
+}
