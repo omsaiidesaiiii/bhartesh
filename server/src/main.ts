@@ -24,16 +24,23 @@ async function bootstrap() {
   let swaggerUrl: string | undefined;
 
   // Determine whether to use HTTPS or HTTP
-  if (process.env.USE_HTTPS === 'true') {
+  const useHttps = process.env.USE_HTTPS === 'true' && process.env.NODE_ENV !== 'production';
+  const keyPath = './certificates/localhost-key.pem';
+  const certPath = './certificates/localhost.pem';
+
+  if (useHttps && fs.existsSync(keyPath) && fs.existsSync(certPath)) {
     const httpsOptions = {
-      key: fs.readFileSync('./certificates/localhost-key.pem'),
-      cert: fs.readFileSync('./certificates/localhost.pem'),
+      key: fs.readFileSync(keyPath),
+      cert: fs.readFileSync(certPath),
     };
     app = await NestFactory.create(AppModule, { httpsOptions });
-    console.log('Running with HTTPS');
+    console.log('Running with HTTPS (Local Development)');
   } else {
     app = await NestFactory.create(AppModule);
     console.log('Running with HTTP');
+    if (process.env.USE_HTTPS === 'true' && process.env.NODE_ENV === 'production') {
+      console.warn('Note: USE_HTTPS is true but ignored in production as Render handles SSL.');
+    }
   }
 
   // Security headers
@@ -70,7 +77,7 @@ async function bootstrap() {
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
     const port = process.env.PORT ?? 3000;
-    const protocol = process.env.USE_HTTPS === 'true' ? 'https' : 'http';
+    const protocol = (process.env.USE_HTTPS === 'true' && process.env.NODE_ENV !== 'production') ? 'https' : 'http';
     swaggerUrl = `${protocol}://localhost:${port}/api`;
   }
 
@@ -81,7 +88,7 @@ async function bootstrap() {
   // Print URLs
   const port = process.env.PORT ?? 3000;
   const ip = getLocalIP();
-  const protocol = process.env.USE_HTTPS === 'true' ? 'https' : 'http';
+  const protocol = (process.env.USE_HTTPS === 'true' && process.env.NODE_ENV !== 'production') ? 'https' : 'http';
   const localUrl = `${protocol}://localhost:${port}`;
   const ipUrl = `${protocol}://${ip}:${port}`;
   console.log(`:) App is running at:`);
