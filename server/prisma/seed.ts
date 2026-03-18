@@ -123,7 +123,7 @@ async function main() {
 
   const allStaffData = [
     // Computer Science Staff
-    { name: 'Dr. Rajesh Kumar', email: 'rajesh.cs@campus.edu', username: 'rajesh_cs', departmentId: csDept.id },
+    { name: 'Dr. Rajesh Kuma', email: 'rajesh.cs@campus.edu', username: 'rajesh_cs', departmentId: csDept.id },
     { name: 'Prof. Meena Sharma', email: 'meena.cs@campus.edu', username: 'meena_cs', departmentId: csDept.id },
     { name: 'Dr. Arun Gupta', email: 'arun.cs@campus.edu', username: 'arun_cs', departmentId: csDept.id },
     // Business Administration Staff
